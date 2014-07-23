@@ -1,0 +1,637 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Writing code that can't go wrong" />
+  <title>Doing More with Modules and Types</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+  </style>
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+    href="http://www.w3.org/Talks/Tools/Slidy2/styles/slidy.css" />
+  <script src="http://www.w3.org/Talks/Tools/Slidy2/scripts/slidy.js"
+    charset="utf-8" type="text/javascript"></script>
+</head>
+<body>
+<div class="slide titlepage">
+  <h1 class="title">Doing More with Modules and Types</h1>
+  <p class="author">
+Writing code that can't go wrong
+  </p>
+  <p class="date">Doug Beardsley</p>
+</div>
+<div id="programmers-will-always-make-mistakes" class="slide section level1">
+<h1>Programmers will ALWAYS make mistakes</h1>
+<ul>
+<li><img src="http://i.imgur.com/Uko3wuw.png" alt="oops" /></li>
+<li>Progress dictates that complexity will be near the limits of our capabilities.</li>
+<li>What do we do about this?
+<ul>
+<li>Make the computer prevent as many of our mistakes as possible</li>
+<li>Encapsulation</li>
+<li>Invariants</li>
+</ul></li>
+<li>How does Haskell accomplish this?
+<ul>
+<li>Strong static type system</li>
+<li>Purity</li>
+<li>Module system</li>
+</ul></li>
+</ul>
+</div>
+<div id="two-misconceptions" class="slide section level1">
+<h1>Two Misconceptions</h1>
+<ul>
+<li>Haskell's type system isn't much more useful than, say, Java's
+<ul>
+<li>Might not be stated in those words, but that's the main thrust of the criticism.</li>
+<li>Common in the dynamic language camp, where some seem to think that just associating a type with something doesn't gain you all that much.</li>
+</ul></li>
+<li>Haskell's module system is not very powerful
+<ul>
+<li>Usually in comparison to ML.</li>
+<li>Lacks interfaces</li>
+<li>But still quite useful
+<ul>
+<li>Encapsulation / Implementation hiding</li>
+<li>Enforcing invariants</li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="outline" class="slide section level1">
+<h1>Outline</h1>
+<ul>
+<li>Four examples:
+<ul>
+<li>Encapsulation: A simple stack</li>
+<li>Interdependent data</li>
+<li>Order of computations</li>
+<li>Security checks</li>
+</ul></li>
+</ul>
+</div>
+<div id="example-stack" class="slide section level1">
+<h1>Example: Stack</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span> <span class="kw">where</span>
+
+<span class="kw">newtype</span> <span class="dt">Stack</span> a <span class="fu">=</span> <span class="dt">Stack</span> {<span class="ot"> unStack ::</span> [a] }
+
+<span class="ot">push ::</span> a <span class="ot">-&gt;</span> <span class="dt">Stack</span> a <span class="ot">-&gt;</span> <span class="dt">Stack</span> a
+push a (<span class="dt">Stack</span> as) <span class="fu">=</span> <span class="dt">Stack</span> (a<span class="fu">:</span>as)
+
+<span class="ot">pop ::</span> <span class="dt">Stack</span> a <span class="ot">-&gt;</span> (<span class="dt">Maybe</span> a, <span class="dt">Stack</span> a)
+pop (<span class="dt">Stack</span> []) <span class="fu">=</span> (<span class="dt">Nothing</span>, <span class="dt">Stack</span> [])
+pop (<span class="dt">Stack</span> (a<span class="fu">:</span>as)) <span class="fu">=</span> (<span class="dt">Just</span> a, <span class="dt">Stack</span> as)
+
+<span class="ot">emptyStack ::</span> <span class="dt">Stack</span> a
+emptyStack <span class="fu">=</span> <span class="dt">Stack</span> []</code></pre>
+<ul>
+<li>Standard OO-style example</li>
+<li>Module exports the following symbols:
+<ul>
+<li>Stack (type constructor), Stack (data constructor), unStack (getter and setter), push, pop, emptyStack</li>
+</ul></li>
+</ul>
+</div>
+<div id="encapsulation" class="slide section level1">
+<h1>Encapsulation</h1>
+<ul>
+<li>We want to hide our stack's implementation</li>
+<li>In Java, encapsulation is mostly done by classes.</li>
+<li>Haskell data types don't have this</li>
+<li>Instead, Haskell uses modules</li>
+</ul>
+</div>
+<div id="module-syntax" class="slide section level1">
+<h1>Module Syntax</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span> <span class="kw">where</span></code></pre>
+<ul>
+<li>Exports everything</li>
+</ul>
+</div>
+<div id="module-syntax-1" class="slide section level1">
+<h1>Module Syntax</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span> <span class="kw">where</span></code></pre>
+<ul>
+<li>Exports everything</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span>
+  ( <span class="dt">Stack</span>(<span class="fu">..</span>)
+  ) <span class="kw">where</span></code></pre>
+<ul>
+<li>Exports Stack (type constructor), Stack (data constructor), getters and setters for all fields.</li>
+</ul>
+</div>
+<div id="module-syntax-2" class="slide section level1">
+<h1>Module Syntax</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span> <span class="kw">where</span></code></pre>
+<ul>
+<li>Exports everything</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span>
+  ( <span class="dt">Stack</span>(<span class="fu">..</span>)
+  ) <span class="kw">where</span></code></pre>
+<ul>
+<li>Exports Stack (type constructor), Stack (data constructor), getters and setters for all fields.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span>
+  ( <span class="dt">Stack</span>
+  ) <span class="kw">where</span></code></pre>
+<ul>
+<li>Only exports the type constructor, not the data constructor or any of the field accessors.</li>
+<li>Other modules can't construct a Stack</li>
+</ul>
+</div>
+<div id="encapsulation-with-modules" class="slide section level1">
+<h1>Encapsulation with Modules</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Stack</span>
+  ( <span class="dt">Stack</span>
+  , push, pop, emptyStack
+  ) <span class="kw">where</span>
+
+<span class="kw">newtype</span> <span class="dt">Stack</span> a <span class="fu">=</span> <span class="dt">Stack</span> {<span class="ot"> unStack ::</span> [a] }
+
+<span class="ot">push ::</span> a <span class="ot">-&gt;</span> <span class="dt">Stack</span> a <span class="ot">-&gt;</span> <span class="dt">Stack</span> a
+push a (<span class="dt">Stack</span> as) <span class="fu">=</span> <span class="dt">Stack</span> (a<span class="fu">:</span>as)
+
+<span class="ot">pop ::</span> <span class="dt">Stack</span> a <span class="ot">-&gt;</span> (<span class="dt">Maybe</span> a, <span class="dt">Stack</span> a)
+pop (<span class="dt">Stack</span> []) <span class="fu">=</span> (<span class="dt">Nothing</span>, <span class="dt">Stack</span> [])
+pop (<span class="dt">Stack</span> (a<span class="fu">:</span>as)) <span class="fu">=</span> (<span class="dt">Just</span> a, <span class="dt">Stack</span> as)
+
+<span class="ot">emptyStack ::</span> <span class="dt">Stack</span> a
+emptyStack <span class="fu">=</span> <span class="dt">Stack</span> []</code></pre>
+<ul>
+<li>Module exports the following symbols:
+<ul>
+<li>Stack (type constructor), push, pop, emptyStack</li>
+</ul></li>
+<li>Implementation is hidden, emptyStack is the only constructor</li>
+<li>We could change the implementation to an Array or Vector and no user-facing code would be affected.</li>
+</ul>
+</div>
+<div id="real-world-encapsulation-in-snap" class="slide section level1">
+<h1>Real World: Encapsulation in Snap</h1>
+<ul>
+<li>Snap makes heavy use of this kind of encapsulation.</li>
+<li>Snap 0.3</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Snap</span> a <span class="fu">=</span> <span class="dt">Snap</span>
+    {<span class="ot"> unSnap ::</span> <span class="dt">StateT</span> <span class="dt">SnapState</span> (<span class="dt">Iteratee</span> <span class="dt">ByteString</span> <span class="dt">IO</span>) (<span class="dt">Maybe</span> (<span class="dt">Either</span> <span class="dt">Response</span> a)) }</code></pre>
+<ul>
+<li>Snap 0.9</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Snap</span> a <span class="fu">=</span> <span class="dt">Snap</span>
+    {<span class="ot"> unSnap ::</span> <span class="dt">StateT</span> <span class="dt">SnapState</span> (<span class="dt">Iteratee</span> <span class="dt">ByteString</span> <span class="dt">IO</span>) (<span class="dt">SnapResult</span> a) }</code></pre>
+</div>
+<div id="what-if-you-need-more-flexibility" class="slide section level1">
+<h1>What if you need more flexibility?</h1>
+<ul>
+<li>Sometimes users legitimately need access to the internals.</li>
+<li>Two conventions
+<ul>
+<li>Internal modules (Snap.Internal)</li>
+<li>unsafeFoo functions</li>
+</ul></li>
+<li>If a user uses an unsafe function or imports a .Internal module, they can't complain if something breaks.</li>
+<li>Very common convention, used by bytestring, text, lens, etc.</li>
+</ul>
+</div>
+<div id="example-enforcing-invariants" class="slide section level1">
+<h1>Example: Enforcing Invariants</h1>
+<ul>
+<li>Simple data structure</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamCountry ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+<span class="kw">data</span> <span class="dt">Address</span> <span class="fu">=</span> <span class="dt">Address</span>
+    {<span class="ot"> addrStreet  ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrCity    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrState   ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrPostal  ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrCountry ::</span> <span class="dt">Text</span>
+    }</code></pre>
+</div>
+<div id="example-enforcing-invariants-1" class="slide section level1">
+<h1>Example: Enforcing Invariants</h1>
+<ul>
+<li>Simple data structure</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamCountry ::</span> <span class="dt">Text</span> <span class="co">-- Duplicate data</span>
+    ,<span class="ot"> teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+<span class="kw">data</span> <span class="dt">Address</span> <span class="fu">=</span> <span class="dt">Address</span>
+    {<span class="ot"> addrStreet  ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrCity    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrState   ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrPostal  ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> addrCountry ::</span> <span class="dt">Text</span> <span class="co">-- Duplicate data</span>
+    }</code></pre>
+<ul>
+<li>Problem
+<ul>
+<li>Country stored in two places</li>
+<li>Might get out of sync</li>
+</ul></li>
+</ul>
+</div>
+<div id="solution-smart-constructor-pattern" class="slide section level1">
+<h1>Solution: Smart Constructor Pattern</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Types.Team</span>
+  ( <span class="dt">Team</span> <span class="co">-- Note this is not Team(..)</span>
+  , mkTeam
+  , teamName
+  ) <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamCountry ::</span> <span class="dt">Text</span> <span class="co">-- Duplicate data</span>
+    ,<span class="ot"> teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+<span class="ot">mkTeam ::</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Address</span> <span class="ot">-&gt;</span> <span class="dt">Team</span>
+mkTeam name addr <span class="fu">=</span> <span class="dt">Team</span> name (addrCountry addr) addr</code></pre>
+<ul>
+<li>Only export the type constructor, not the data constructor.</li>
+<li>Define our own &quot;smart constructor&quot; and export that instead.</li>
+<li>Don't export field symbols for teamCountry and teamAddress.</li>
+<li>Now it is <strong>impossible</strong> to ever have a team with inconsistent addresses (outside the Types.Team module).</li>
+</ul>
+</div>
+<div id="solution-smart-constructor-pattern-1" class="slide section level1">
+<h1>Solution: Smart Constructor Pattern</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Types.Team</span>
+  ( <span class="dt">Team</span> <span class="co">-- Note this is not Team(..)</span>
+  , mkTeam
+  , teamName
+  ) <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    , _<span class="ot">teamCountry ::</span> <span class="dt">Text</span> <span class="co">-- Duplicate data</span>
+    , _<span class="ot">teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+<span class="ot">mkTeam ::</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Address</span> <span class="ot">-&gt;</span> <span class="dt">Team</span>
+mkTeam name addr <span class="fu">=</span> <span class="dt">Team</span> name (addrCountry addr) addr</code></pre>
+<ul>
+<li>Only export the type constructor, not the data constructor.</li>
+<li>Define our own &quot;smart constructor&quot; and export that instead.</li>
+<li>Don't export field symbols for teamCountry and teamAddress.</li>
+<li>Now it is <strong>impossible</strong> to ever have a team with inconsistent addresses (outside the Types.Team module).</li>
+<li>If you really want to export those names, then name your field accessors something different.</li>
+</ul>
+</div>
+<div id="analysis" class="slide section level1">
+<h1>Analysis</h1>
+<ul>
+<li>What features of Haskell made this work?</li>
+</ul>
+</div>
+<div id="analysis-1" class="slide section level1">
+<h1>Analysis</h1>
+<ul>
+<li>What features of Haskell made this work?</li>
+</ul>
+<ol style="list-style-type: decimal">
+<li>Strong static type system</li>
+</ol>
+</div>
+<div id="analysis-2" class="slide section level1">
+<h1>Analysis</h1>
+<ul>
+<li>What features of Haskell made this work?</li>
+</ul>
+<ol style="list-style-type: decimal">
+<li>Strong static type system</li>
+<li>Purity</li>
+</ol>
+</div>
+<div id="analysis-3" class="slide section level1">
+<h1>Analysis</h1>
+<ul>
+<li>What features of Haskell made this work?</li>
+</ul>
+<ol style="list-style-type: decimal">
+<li>Strong static type system</li>
+<li>Purity</li>
+<li>Module system</li>
+</ol>
+</div>
+<div id="analysis-4" class="slide section level1">
+<h1>Analysis</h1>
+<ul>
+<li>What features of Haskell made this work?</li>
+</ul>
+<ol style="list-style-type: decimal">
+<li>Strong static type system</li>
+<li>Purity</li>
+<li>Module system</li>
+</ol>
+<ul>
+<li>If any one of these three is missing, then you lose the guarantee.</li>
+</ul>
+</div>
+<div id="analysis-5" class="slide section level1">
+<h1>Analysis</h1>
+<ul>
+<li>What features of Haskell made this work?</li>
+</ul>
+<ol style="list-style-type: decimal">
+<li>Strong static type system</li>
+<li>Purity</li>
+<li>Module system</li>
+</ol>
+<ul>
+<li>If any one of these three is missing, then you lose the guarantee.</li>
+<li>All of this may seem simple and obvious, but it can get more complicated...</li>
+</ul>
+</div>
+<div id="more-powerful-possibilities" class="slide section level1">
+<h1>More powerful possibilities</h1>
+<ul>
+<li>mkTeam can do <strong>turing-complete</strong> calculations
+<ul>
+<li>Serialization of some kind of blob structure</li>
+<li>Sorting to ensure structures are kept in a certain order</li>
+<li>Caching expensive computations and ensuring that the cache is up to date</li>
+<li>Smart constructor can be monadic</li>
+<li>Enforcing all kinds of other invariants</li>
+</ul></li>
+</ul>
+</div>
+<div id="more-powerful-possibilities-1" class="slide section level1">
+<h1>More powerful possibilities</h1>
+<ul>
+<li>mkTeam can do <strong>turing-complete</strong> calculations
+<ul>
+<li>Serialization of some kind of blob structure</li>
+<li>Sorting to ensure structures are kept in a certain order</li>
+<li>Caching expensive computations and ensuring that the cache is up to date</li>
+<li>Smart constructor can be monadic</li>
+<li>Enforcing all kinds of other invariants</li>
+</ul></li>
+<li>Big point: Haskell types give you arbitrarily complex turing-complete guarantees!</li>
+<li>This comes directly from the synergy between string static types, purity, and the module system.</li>
+</ul>
+</div>
+<div id="example-encapsulation-and-template-haskell" class="slide section level1">
+<h1>Example: Encapsulation and Template Haskell</h1>
+<ul>
+<li>You're generating symbols from TemplateHaskell (e.g. groundhog, persistent, lens)</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Types.Team</span> <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamCountry ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+mkPersist defCodegen [groundhog<span class="fu">|</span>
+<span class="fu">-</span> entity<span class="fu">:</span> <span class="dt">Team</span>
+  dbName<span class="fu">:</span> team
+<span class="fu">|</span>]</code></pre>
+</div>
+<div id="example-encapsulation-and-template-haskell-1" class="slide section level1">
+<h1>Example: Encapsulation and Template Haskell</h1>
+<ul>
+<li>You're generating symbols from TemplateHaskell (e.g. groundhog, persistent, lens)</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Types.Team</span> <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamCountry ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+mkPersist defCodegen [groundhog<span class="fu">|</span>
+<span class="fu">-</span> entity<span class="fu">:</span> <span class="dt">Team</span>
+  dbName<span class="fu">:</span> team
+<span class="fu">|</span>]</code></pre>
+<ul>
+<li>Problem
+<ul>
+<li>mkPersist exports a LOT of symbols.</li>
+<li>You don't know what they are.</li>
+<li>Exporting them explicitly is too painful.</li>
+<li>If you don't export explicitly, you export too much.</li>
+</ul></li>
+</ul>
+</div>
+<div id="solution-separate-modules" class="slide section level1">
+<h1>Solution: Separate Modules</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Types.Team.Smart</span>
+  ( <span class="dt">Team</span>
+  , mkTeam
+  , teamName
+  ) <span class="kw">where</span>
+
+<span class="kw">data</span> <span class="dt">Team</span> <span class="fu">=</span> <span class="dt">Team</span>
+    {<span class="ot"> teamName    ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamCountry ::</span> <span class="dt">Text</span>
+    ,<span class="ot"> teamAddress ::</span> <span class="dt">Address</span>
+    }
+
+<span class="ot">mkTeam ::</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Address</span> <span class="ot">-&gt;</span> <span class="dt">Team</span>
+mkTeam name addr <span class="fu">=</span> <span class="dt">Team</span> name (addrCountry addr) addr</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">Types.Team</span>
+  ( <span class="kw">module</span> <span class="dt">Types.Team</span>
+  , <span class="kw">module</span> <span class="dt">Types.Team.Smart</span>
+  ) <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">Types.Team.Smart</span>
+
+mkPersist defCodegen [groundhog<span class="fu">|</span>
+<span class="fu">-</span> entity<span class="fu">:</span> <span class="dt">Team</span>
+  dbName<span class="fu">:</span> team
+<span class="fu">|</span>]</code></pre>
+</div>
+<div id="benefits" class="slide section level1">
+<h1>Benefits</h1>
+<ul>
+<li>We still have all of the above safety</li>
+<li>Everyone else only imports Types.XYZ</li>
+<li>Good ideas
+<ul>
+<li>Put as little code as possible in the .Smart module.</li>
+<li>Any time you're working on a .Smart module, you know you need to be careful to maintain the invariants establised by the type's smart constructor.</li>
+<li>Easy to find .Smart modules and put more audit scrutiny into them.</li>
+</ul></li>
+</ul>
+</div>
+<div id="example-snap-and-ordering-constraints" class="slide section level1">
+<h1>Example: Snap and Ordering Constraints</h1>
+<ul>
+<li>The <code>Initializer</code> monad had ordering constraints.</li>
+<li>I wanted to make it impossible for the user to get the ordering wrong.</li>
+<li>But how do you enforce ordering with types?</li>
+</ul>
+</div>
+<div id="adding-a-newtype" class="slide section level1">
+<h1>Adding a newtype</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">SnapletInit</span> b v <span class="fu">=</span> <span class="dt">SnapletInit</span> (<span class="dt">Initializer</span> b v (<span class="dt">Snaplet</span> v))</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">makeSnaplet ::</span> <span class="dt">Text</span>
+            <span class="ot">-&gt;</span> <span class="dt">Text</span>
+            <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">IO</span> <span class="dt">FilePath</span>)
+            <span class="ot">-&gt;</span> <span class="dt">Initializer</span> b v v
+            <span class="ot">-&gt;</span> <span class="dt">SnapletInit</span> b v</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nestSnaplet ::</span> <span class="dt">ByteString</span>
+            <span class="ot">-&gt;</span> <span class="dt">SnapletLens</span> v v1
+            <span class="ot">-&gt;</span> <span class="dt">SnapletInit</span> b v1
+            <span class="ot">-&gt;</span> <span class="dt">Initializer</span> b v (<span class="dt">Snaplet</span> v1)</code></pre>
+<ul>
+<li>In order to use nestSnaplet (the place that had ordering constraints) you have to have a SnapletInit.</li>
+<li>The <strong>only</strong> way to get a SnapletInit is with makeSnaplet.</li>
+<li>makeSnaplet contains the stuff that has to happen first.</li>
+<li>nestSnaplet contains stuff that has to happen second.</li>
+<li>The user never sees anything except Initializer.</li>
+<li>Impossible for the end user to get it wrong</li>
+</ul>
+</div>
+<div id="example-security" class="slide section level1">
+<h1>Example: Security</h1>
+<ul>
+<li>Problem
+<ul>
+<li>Don't want to think about security 100% of the time</li>
+<li>Can't forget about security when it matters</li>
+</ul></li>
+<li>Solution
+<ul>
+<li>High-level code is security-oblivious</li>
+<li>Running low-level code requires a security check</li>
+</ul></li>
+<li>How do we enforce this?</li>
+</ul>
+</div>
+<div id="layered-architecture" class="slide section level1">
+<h1>Layered architecture</h1>
+<ul>
+<li>Haskell can enforce invariants on computations, too
+<ul>
+<li>e.g. &quot;This computation always makes a security check before calling low-level code&quot;</li>
+</ul></li>
+<li>Technique: Monad with smart constructor</li>
+</ul>
+</div>
+<div id="securet" class="slide section level1">
+<h1>SecureT</h1>
+<ul>
+<li><code>SecureT</code> is a monad transformer that requires a check before running lower-level code from the higher-level monad</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">module</span> <span class="dt">SecureT</span> (<span class="dt">SecureT</span>, runSecureT, liftChecked) <span class="kw">where</span>
+<span class="co">-- ...</span>
+
+<span class="kw">data</span> <span class="dt">User</span> <span class="fu">=</span> <span class="dt">User</span> {<span class="ot"> userCapabilities ::</span> <span class="dt">Set</span> <span class="dt">Capability</span> }
+
+<span class="kw">newtype</span> <span class="dt">SecureT</span> m a <span class="fu">=</span> <span class="dt">SecureT</span> (<span class="dt">ReaderT</span> <span class="dt">User</span> m a)
+  <span class="kw">deriving</span> (<span class="dt">Functor</span>, <span class="dt">Monad</span>)
+
+<span class="ot">runSecureT ::</span> <span class="dt">SecureT</span> m a <span class="ot">-&gt;</span> <span class="dt">User</span> <span class="ot">-&gt;</span> m a
+runSecureT (<span class="dt">SecureT</span> action) user <span class="fu">=</span> runReaderT action user
+
+<span class="ot">getCurrentUser ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">SecureT</span> m <span class="dt">User</span>
+getCurrentUser <span class="fu">=</span> <span class="dt">SecureT</span> ask
+
+<span class="ot">liftChecked ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Capability</span> <span class="ot">-&gt;</span> m a <span class="ot">-&gt;</span> <span class="dt">SecureT</span> m a
+liftChecked requiredCapability action <span class="fu">=</span> <span class="kw">do</span>
+  user <span class="ot">&lt;-</span> getCurrentUser
+  <span class="kw">if</span> requiredCapability <span class="ot">`Set.member`</span> userCapabilities user
+    <span class="kw">then</span> <span class="dt">SecureT</span> <span class="fu">$</span> lift action
+    <span class="kw">else</span> fail <span class="fu">$</span> <span class="st">&quot;Permission denied: &quot;</span> <span class="fu">++</span> show requiredCapability</code></pre>
+</div>
+<div id="making-it-safe" class="slide section level1">
+<h1>Making it Safe</h1>
+<ul>
+<li>Export <code>SecureT</code> type, but not <code>SecureT</code> constructor
+<ul>
+<li><code>liftChecked</code> is the smart constructor</li>
+</ul></li>
+<li>Note: instances are always exported (implicitly)
+<ul>
+<li>So, do NOT implement <code>MonadTrans</code> or <code>MonadIO</code>
+<ul>
+<li><code>lift</code> and <code>liftIO</code> would bypass smart constructor</li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="making-it-abstract" class="slide section level1">
+<h1>Making it abstract</h1>
+<ul>
+<li>What if we want multiple implementations?</li>
+<li>Make a typeclass</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">MonadChecked</span> capability t <span class="kw">where</span>
+<span class="ot">  liftChecked ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> capability <span class="ot">-&gt;</span> m a <span class="ot">-&gt;</span> t m a
+
+<span class="kw">instance</span> <span class="dt">MonadChecked</span> <span class="dt">Capability</span> <span class="dt">SecureT</span> <span class="kw">where</span>
+  liftChecked requiredCapability action <span class="fu">=</span> <span class="kw">do</span>
+    user <span class="ot">&lt;-</span> getCurrentUser
+    <span class="kw">if</span> requiredCapability <span class="ot">`Set.member`</span> userCapabilities user
+      <span class="kw">then</span> <span class="dt">SecureT</span> <span class="fu">$</span> lift action
+      <span class="kw">else</span> fail <span class="fu">$</span> <span class="st">&quot;Permission denied: &quot;</span> <span class="fu">++</span> show requiredCapability</code></pre>
+<ul>
+<li>To move <code>liftChecked</code> into a typeclass, we just replace the hard-coded <code>Capability</code> with typeclass parameter <code>capability</code> and <code>SecureT</code> with <code>t</code></li>
+</ul>
+</div>
+<div id="notes" class="slide section level1">
+<h1>Notes:</h1>
+<ul>
+<li>Typeclasses that describe a monad with particular behavior are traditionally named &quot;<code>Monad</code>*&quot;
+<ul>
+<li><code>MonadReader</code>, <code>MonadWriter</code>, <code>MonadState</code>, <code>MonadIO</code>, etc.</li>
+</ul></li>
+<li>Implementers of <code>MonadChecked</code> must still be careful about exports, just like before
+<ul>
+<li><p>However, code that is fully polymorphic is safe, regardless:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">f ::</span> (<span class="dt">Monad</span> m, <span class="dt">MonadChecked</span> <span class="dt">Capability</span> t) <span class="ot">=&gt;</span> t m a</code></pre></li>
+<li><p>Since <code>f</code>'s type signature doesn't include MonadIO, it can't use it, even if an instance exists for some types <code>t</code> and <code>m</code></p></li>
+</ul></li>
+</ul>
+</div>
+<div id="summary" class="slide section level1">
+<h1>Summary</h1>
+<ul>
+<li>Haskell's module system is crucial to constructing ADTs that hide their representation.</li>
+<li>The combination of the module system with Haskell's purity and strong types makes it uniquely poweful compared to today's mainstream languages in providing guarantees about your code.
+<ul>
+<li>All the encapsulation OO languages talk about</li>
+<li>Consistency guarantees that aren't possible in other languages (because of monads and purity)</li>
+<li>Guarantee the order of computations</li>
+<li>Ensure security checks happen</li>
+</ul></li>
+</ul>
+</div>
+</body>
+</html>
