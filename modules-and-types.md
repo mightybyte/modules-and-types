@@ -1,6 +1,6 @@
 % Doing More with Modules and Types
 % Writing code that can't go wrong
-% Doug Beardsley
+% Doug Beardsley (Soostone Inc)
 
 # Programmers will ALWAYS make mistakes
 
